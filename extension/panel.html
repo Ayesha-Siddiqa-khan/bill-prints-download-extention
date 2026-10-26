@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bill Prints Download</title><link rel="stylesheet" href="panel.css"></head>
+<body><main>
+<header><div class="brand"><img src="icons/icon48.png" width="44" height="44" alt=""><div><h1>Bill Prints Download</h1><p>Locality bills, neatly collected.</p></div></div>
+<div class="window-actions"><button id="minimize" class="quiet" title="Minimize window">− <span>Minimize</span></button><button id="close" class="quiet" title="Close control window">× <span>Close</span></button></div></header>
+<div id="error" class="alert" role="alert" hidden></div>
+<section class="intro"><div><span class="eyebrow">YOUR BILLING WORKSPACE</span><h2>One batch. Every locality.</h2><p>Collect individual PDFs, a locality CSV, and one combined PDF.</p></div><span class="badge" id="status">Ready</span></section>
+<section class="card setup"><div class="step"><span>1</span><div><h3>Read your billing list</h3><p>Open the portal’s Water Print Bills list, then click the extension icon on that tab.</p></div></div>
+<div class="setup-actions"><button id="scan" class="primary">↻ Scan billing page</button><button id="add" class="secondary">Add another list page</button><label class="delay">Delay between PDFs <div><input id="delay" type="number" min="1" max="300" value="3" aria-label="Delay between PDFs in seconds"><span>seconds</span></div></label></div>
+<p id="scanInfo" class="hint">No list scanned yet. PDF links are read using your existing portal login.</p></section>
+<section class="card progress-card"><div class="progress-head"><div><span class="eyebrow">BATCH PROGRESS</span><h3 id="message">Ready when you are</h3></div><strong id="counter">0 / 0</strong></div>
+<progress id="progress" value="0" max="1" aria-label="Downloaded PDFs"></progress>
+<div class="metrics"><span>Elapsed <b id="elapsed">00:00:00</b></span><span>Next PDF <b id="next">—</b></span><span>Failed <b id="failed">0</b></span><span>Pages saved <b id="pages">0</b></span></div>
+<div class="controls"><button id="start" class="primary" disabled>↓ Start download</button><button id="pause" class="secondary" disabled>Ⅱ Pause</button><button id="resume" class="secondary" disabled>▶ Resume / retry</button><button id="stop" class="danger" disabled>■ Stop</button><button id="folder" class="quiet">Open folder ↗</button></div>
+<div class="folder-line"><span>DOWNLOAD DESTINATION</span><code id="destination">Downloads / DDMMYY Bill Prints Download</code></div></section>
+<section class="card list-card"><div class="list-head"><h3>Locality queue <span id="rowCount">0</span></h3><label><input id="selectAll" type="checkbox" checked> Select all</label></div>
+<div class="table-wrap"><table><thead><tr><th aria-label="Selected"></th><th>#</th><th>Locality / sector</th><th>Bills</th><th>PDF file</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table><p id="empty">Scan your billing page to preview the download queue.</p></div></section>
+<footer><span>Progress saves on this device. Minimizing or closing this window keeps the batch running. Use Pause or Stop to halt it.</span><button id="clear" class="quiet">Clear temporary data</button></footer>
+</main><script src="core.js"></script><script src="panel.js"></script></body></html>

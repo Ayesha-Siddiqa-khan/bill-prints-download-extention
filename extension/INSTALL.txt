@@ -1,0 +1,51 @@
+Bill Prints Download — installation and use
+
+1. Extract the ZIP to a permanent folder.
+2. Open chrome://extensions in Chrome.
+3. Turn on Developer mode (top right).
+4. Click Load unpacked and select the folder containing manifest.json.
+5. Pin Bill Prints Download from Chrome's Extensions menu.
+6. Log in to https://elgcd.punjab.gov.pk and open Water Print Bills.
+7. Display the bill list, then click the extension icon on that tab.
+8. Click Scan billing page. Review the selected localities and delay.
+9. If the list has server-loaded pagination, move to each next page in
+   the portal and click Add another list page before starting.
+10. Click Start download.
+
+Output is saved inside your configured Chrome Downloads directory:
+  DDMMYY Bill Prints Download/
+    Locality name.pdf
+    Locality name (2).pdf   (when names repeat)
+    Localities.csv
+    All Bills.pdf
+
+Pause / Stop save progress. Resume continues pending work and retries
+failures. A disk download already started is allowed to finish.
+Minimize and Close affect only the control window; the batch continues.
+Click the toolbar icon again to reopen it. To halt work, use Pause or Stop.
+After a browser restart, reopen the extension and press Resume.
+
+Keep Chrome running during downloads. Keep your portal login active.
+Turn off Chrome's "Ask where to save each file before downloading" setting
+if Chrome prompts for a location. Chrome controls the actual Downloads root.
+
+PDFs must be accessible using your portal login and must not be encrypted.
+View links may use href, data-url/data-href, or a literal window.open URL.
+Framework click handlers without a URL show "View action ready". Their
+PDF address is captured by clicking View during the download. Keep the
+billing list tab open on the scanned page for these rows. Clicking View
+must open a portal HTTPS URL via window.open or an anchor link.
+Missing/unsupported links are flagged in the preview and not selected.
+If the portal changes its table/link format, the scanner may need updating.
+
+If a file fails, successful PDFs still get merged and the CSV lists failures.
+Resume retries failures and writes updated CSV/merged output. Chrome adds
+numeric suffixes to files that already exist, including earlier batches
+on the same date. No already-downloaded file is overwritten.
+
+Clear temporary data deletes cached PDFs and saved batch progress only.
+It does not delete files from Downloads. Starting a new batch also replaces
+temporary copies for the old batch. Only one batch is retained at a time.
+Large combined PDFs require available memory; pause and retry or use smaller
+batches if Chrome runs out of memory. Files are processed locally with a
+bundled copy of pdf-lib. There are no analytics or external processing servers.
