@@ -42,10 +42,13 @@ async function handle(message) {
       if (sourceTabId) { try { tab = await chrome.tabs.get(sourceTabId); } catch { tab = null; } }
     }
     if (!tab || tab.url !== row.viewRef.pageUrl || !BillCore.allowedUrl(tab.url)) throw new Error('Reopen the original billing list and click the extension icon on that tab, then Resume.');
-    const [{result}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: resolveBillView, args: [row]});
+    const waitMs = Number(message.waitMs ?? 600000);
+    if (!Number.isFinite(waitMs) || waitMs < 1 || waitMs > 7200000 || !['start', 'poll', 'cancel'].includes(message.action || 'start')) throw new Error('Invalid View wait settings.');
+    const [{result}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: resolveBillView, args: [row, waitMs, message.action || 'start']});
     if (result?.error) throw new Error(result.error);
+    if (result?.pending || result?.cancelled) return result;
     if (!BillCore.allowedUrl(result?.url)) throw new Error('View did not produce a supported PDF URL.');
-    return result.url;
+    return result;
   }
   if (message.type === 'COMMAND') {
     await ensureRunner();
@@ -73,6 +76,10 @@ async function handle(message) {
   if (message.type === 'DOWNLOAD_STATUS') {
     const [item] = await chrome.downloads.search({id: message.id});
     return item ? {state: item.state, error: item.error} : {state: 'interrupted', error: 'Download record missing'};
+  }
+  if (message.type === 'CANCEL_DOWNLOAD') {
+    await chrome.downloads.cancel(message.id);
+    return true;
   }
   if (message.type === 'SHOW_FOLDER') {
     if (message.id) await chrome.downloads.show(message.id);

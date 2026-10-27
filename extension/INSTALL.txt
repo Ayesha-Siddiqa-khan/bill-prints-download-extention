@@ -23,7 +23,66 @@ Pause / Stop save progress. Resume continues pending work and retries
 failures. A disk download already started is allowed to finish.
 Minimize and Close affect only the control window; the batch continues.
 Click the toolbar icon again to reopen it. To halt work, use Pause or Stop.
-After a browser restart, reopen the extension and press Resume.
+After a power cut, system shutdown, or browser restart, reopen the extension
+and press Resume / retry all. The saved folder, queue, retry settings and
+completed PDFs are retained. Partial bytes are reused when the portal supports
+validated HTTP Range resume; otherwise that file restarts. Completed files
+are skipped. Reopen the original list tab for any
+unresolved View actions and click the extension icon on that tab first.
+
+Heavy files: Wait limit per file defaults to 10 minutes; increase it up to
+120 minutes. This covers View preparation, network fetch and disk download.
+When the limit expires, the file is marked failed and the next locality runs.
+The page shows received MB and the remaining wait. Changes to the wait limit
+apply to the next file attempt, so Pause then Resume to restart a current
+attempt using a longer limit.
+
+Parallel downloads: choose up to 5 files at once. New batches default to 5.
+When a slot completes or is skipped, the next queued file takes its place
+after the configured delay. Each file has its own progress and wait timer.
+Changing the slot count applies on the next pass, or Pause then Resume to
+apply immediately. View actions are captured one at a time to preserve the
+correct locality/PDF pairing; their PDF network transfers run in parallel.
+
+If a connection breaks mid-file, the received data is checkpointed and that
+attempt waits until its ORIGINAL deadline. It does not silently restart the
+transfer or reset its timer. Auto retries cannot start before that deadline.
+Pause, Skip and manual Resume/Retry remain available as explicit overrides.
+Partial resume requires a matching ETag/Last-Modified validator and a valid
+206 Content-Range response. A changed file or a server ignoring Range uses
+one clean full response instead; old and new representations are never mixed.
+Transfers continue reading while checkpoints are saved in the background.
+
+Auto retry until complete: when checked, failed/skipped files are retried
+after the current pass with at least a 30-second break between passes.
+It keeps retrying while Chrome is running until complete, Pause or Stop is
+pressed, or auto retry is unchecked. Successful files are not downloaded again.
+CSV and merged PDF are written when the run finishes; turn auto retry off to
+finish with partial results if a file remains permanently unavailable.
+
+Skip current file: interrupt the active PDF and move to the next locality.
+It stays available for a later Retry; auto retry revisits it on another pass.
+To retry just one file, Pause/Stop and wait until the batch is idle, then use
+Retry in that row. Other unfinished files remain untouched. Resume / retry
+all handles all unfinished files. The CSV and merged PDF refresh afterward.
+You can also check one or more unfinished rows and press Download selected.
+Select unfinished files checks all eligible unfinished rows. Completed files
+cannot be selected and are not downloaded again. In parallel mode each active
+row has a Skip button; the main Skip current file button targets the first
+active row. Skipping one does not cancel the other active transfers.
+
+Chrome's own parallel-download setting can remain enabled. This extension's
+five slots are separate concurrent PDF requests, and its browser download
+manager saves the finished local PDF blobs. Server/network bandwidth still
+limits total speed; five slots cannot guarantee a five-fold speed increase.
+
+UPDATING WITHOUT LOSING YOUR CURRENT BATCH
+Pause the old version and wait for it to become idle. Replace files inside
+the SAME loaded extension folder, then use Reload on chrome://extensions.
+Close the old control window and reopen using the toolbar icon on the portal
+list tab. Use Resume; do not Start a new batch or Clear temporary data.
+Do not remove the extension or load it from a new path: Chrome may give it
+a new identity, which cannot access the old extension's saved data.
 
 Keep Chrome running during downloads. Keep your portal login active.
 Turn off Chrome's "Ask where to save each file before downloading" setting

@@ -54,8 +54,15 @@ function scanBillTable() {
 }
 
 // Framework event listeners (including Angular's click bindings) have no href/onclick to parse.
-async function resolveBillView(row) {
+function resolveBillView(row, waitMs = 600000, action = 'start') {
   try {
+  const previous = window.__billPrintsViewResolution;
+  if (action === 'poll') return previous?.token === row.viewRef.token ? previous.result : {error: 'View resolution was interrupted. Retry this file.'};
+  if (action === 'cancel') {
+    if (previous?.token === row.viewRef.token) previous.cancel();
+    return {cancelled: true};
+  }
+  if (previous?.result.pending) previous.cancel();
   const clean = value => String(value || '').replace(/\s+/g, ' ').trim();
   let view = [...document.querySelectorAll('[data-bpd-view-id]')]
     .find(el => el.getAttribute('data-bpd-view-id') === row.viewRef.token);
@@ -76,15 +83,23 @@ async function resolveBillView(row) {
   }
   if (!view?.isConnected) throw new Error('The locality View button is no longer on the billing page. Display its list page again, then Resume.');
   const originalOpen = window.open;
-  let timer, capture, rejectCapture;
-  const result = new Promise((resolve, reject) => { capture = resolve; rejectCapture = reject; });
+  let timer;
+  const state = {token: row.viewRef.token, result: {pending: true}, cancel: () => finish({error: 'View resolution cancelled.'})};
+  window.__billPrintsViewResolution = state;
+  const finish = result => {
+    if (!state.result.pending) return;
+    state.result = result;
+    clearTimeout(timer);
+    if (window.open === interceptOpen) window.open = originalOpen;
+    document.removeEventListener('click', interceptAnchor, true);
+  };
   const record = value => {
     if (!value || value === 'about:blank') return;
     try {
       const url = new URL(String(value), document.baseURI);
       if (url.protocol !== 'https:' || url.hostname !== 'elgcd.punjab.gov.pk' || url.username || url.password) throw new Error('View opened an unsupported PDF address.');
-      capture(url.href);
-    } catch (error) { rejectCapture(error); }
+      finish({url: url.href});
+    } catch (error) { finish({error: error.message}); }
   };
   const locationProxy = {assign: record, replace: record};
   Object.defineProperty(locationProxy, 'href', {set: record, get: () => 'about:blank'});
@@ -101,13 +116,9 @@ async function resolveBillView(row) {
   try {
     window.open = interceptOpen;
     document.addEventListener('click', interceptAnchor, true);
-    timer = setTimeout(() => rejectCapture(new Error('View did not open a PDF within 15 seconds. Keep the billing list open and try Resume.')), 15000);
+    timer = setTimeout(() => finish({error: 'View exceeded this file’s wait limit. Skipped for a later retry.'}), waitMs);
     view.click();
-    return {url: await result};
-  } finally {
-    clearTimeout(timer);
-    if (window.open === interceptOpen) window.open = originalOpen;
-    document.removeEventListener('click', interceptAnchor, true);
-  }
+    return state.result;
+  } catch (error) { finish({error: error.message}); return state.result; }
   } catch (error) { return {error: error.message}; }
 }

@@ -1,6 +1,6 @@
 {
   "name": "bill-prints-download-extention",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Chrome extension to download and merge locality bill PDFs",
   "main": "index.js",
   "directories": {

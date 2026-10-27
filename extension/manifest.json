@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bill Prints Download",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Download locality bill PDFs, save a CSV, and merge bills with pause and resume.",
   "minimum_chrome_version": "116",
   "permissions": ["activeTab", "scripting", "downloads", "storage", "offscreen", "unlimitedStorage"],

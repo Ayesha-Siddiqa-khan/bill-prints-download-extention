@@ -4,18 +4,27 @@ A ready-to-load Chrome Manifest V3 extension for the eLGCD Water Print Bills lis
 
 ## Install
 
-1. Extract `Bill-Prints-Download-v1.0.1.zip` to a permanent folder.
+1. Extract `Bill-Prints-Download-v1.0.3.zip` to a permanent folder.
 2. Open `chrome://extensions`, enable **Developer mode**, and choose **Load unpacked**.
 3. Select the extracted folder containing `manifest.json` (or this repository's `extension` folder).
 4. Log in to the portal, display the bill list, click the extension icon, then **Scan billing page → Start download**.
 
 The detailed operating guide is in [extension/INSTALL.txt](extension/INSTALL.txt).
 
+**Updating an existing batch:** Pause and wait for the old version to become idle, replace files in the **same loaded extension folder**, and Reload it on `chrome://extensions`. Close the old control window and reopen from the portal tab, then use Resume. Removing the extension, loading it from a different folder, starting a new batch, or clearing data can make the previous saved batch unavailable. Existing v1.0.1 queues migrate automatically; do not rescan/start over to resume them.
+
 ## Included behavior
 
 - Local-date folder: `DDMMYY Bill Prints Download` under Chrome's configured Downloads directory. Chrome creates it when saving the first file.
 - Locality filenames, safe Windows characters, and numbered suffixes for duplicate names.
 - Persistent separate window, Minimize/Close, Pause/Resume/Stop, elapsed timer and configurable 1–300 second delay.
+- A sliding queue of 1–5 simultaneous PDF transfers (5 by default), with independent file deadlines, progress and Skip controls. A freed slot takes the next row after the configured delay. View URL capture is serialized to keep asynchronous page actions paired with the right locality; PDF downloads run concurrently.
+- Adjustable per-file wait limit: 10 minutes by default, up to 120 minutes, replacing the old 15-second View and 2-minute fetch limits. Received MB, remaining wait and attempt counts are shown.
+- Optional auto retry until complete, with a 30-second minimum cooldown between passes. Each pass processes other queued files before revisiting failures.
+- Skip current file, Retry for individual unfinished rows, and Resume / retry all. Successful files stay downloaded and are included in the refreshed merge.
+- Saved queues have working unfinished-row checkboxes, Select unfinished files and Download selected. Selected runs affect only checked unfinished rows; completed PDFs stay saved.
+- Broken streams keep their received bytes and original deadline instead of restarting early. Automatic retry honors each failed attempt's original deadline. Network reads are not blocked on periodic checkpoint writes.
+- Safe partial-download reuse using HTTP Range/If-Range when the server offers validators and a consistent 206 response. Changed or unsupported ranges fall back to a clean full response.
 - Local IndexedDB PDF cache and saved progress; browser restarts recover in paused mode.
 - Individual PDFs, `Localities.csv` (locality, sector, file number, bill count, PDF filename, status, page count and errors), and `All Bills.pdf`, in queue order.
 - Failed downloads remain visible and can be retried. Partial merges include successful PDFs only.
@@ -25,6 +34,14 @@ The detailed operating guide is in [extension/INSTALL.txt](extension/INSTALL.txt
 The scanner reads plain tables and all loaded, filtered client-side DataTables rows. For server-side pagination, collect each page using **Add another list page**. The scan summary identifies server-side pagination. Only `https://elgcd.punjab.gov.pk` is permitted. Literal href, data-url/data-href, window.open and location assignment links are supported. Framework click handlers without an HTML link show **View action ready** and are selected automatically. At download time the extension clicks View and temporarily intercepts `window.open` or an anchor navigation to capture the portal PDF address, without opening a PDF tab. Synchronous/asynchronous opens and blank popups followed by a location assignment are supported. Keep the billing page open for these actions; if its nodes are recreated, the resolver matches the locality, sector, file number and bill count. Ambiguous or missing rows produce an actionable error rather than guessing. Unsupported actions such as generating a blob or navigating the existing tab directly are reported as failures. With server pagination, dynamic rows must be visible on their original list page when resolved.
 
 Minimizing or closing the controls leaves processing running. Use Pause or Stop to halt work; an active disk download finishes before the processor becomes idle. Closing Chrome requires reopening the extension and pressing Resume. Starting a new batch replaces the previous batch's temporary data. Existing downloaded files are preserved; repeated exports on the same day receive Chrome's numeric filename suffixes. Encrypted PDFs are unsupported; large merges are limited by Chrome's available memory. A valid portal login is required.
+
+The wait limit covers portal preparation, fetch and disk save for a file attempt. Timeout or manual Skip leaves that file retryable and advances the queue. Auto retry repeats only failures in its current scope (all files, or the one row chosen for Retry), until success or user intervention. It uses short polls for portal preparation so Chrome's service worker is not kept inside one long request. Changing settings on a saved batch persists them immediately; changed time limits apply on the next attempt. CSV and merged output are finalized when the run finishes, including partial results when auto retry is off. Uncheck auto retry to finish the current pass and export successful files when a portal error is permanent.
+
+Checkpoint and PDF-cache writes request IndexedDB's `strict` durability mode to reduce the risk of losing recently committed progress on a power failure. This asks Chrome to flush writes before reporting transaction completion; it cannot guarantee against hardware failure or deletion of browser data. See [Chrome's durability documentation](https://developer.chrome.com/blog/indexeddb-durability-mode-now-defaults-to-relaxed).
+
+After an unexpected shutdown, the saved batch opens paused. Its original folder, queue, retry settings, completed-file IDs and cached PDFs remain on disk. Partial PDF blobs are checkpointed every 8 MB or 5 seconds while reading, and on a handled interruption. Resume reuses these bytes if the portal supports a validated range request, otherwise it restarts that incomplete file. Completed rows are skipped. Local browser data must still be intact. The process continues while Chrome runs; it cannot download while the computer is powered off.
+
+Connection errors can occur before a configured timeout. For a broken stream, the row remains active with its received-byte count and original deadline, explicitly showing that the connection is interrupted. It makes no new network request before that deadline unless the user explicitly pauses/skips and manually resumes. Automatic retries of other errors also wait for the previous deadline. With auto retry off, unfinished rows remain available for manual checkbox selection. Parallel requests may improve throughput when the portal has spare capacity; they cannot exceed its bandwidth or guarantee a fixed speed gain. Chrome's separate parallel-download flag can remain enabled, but this extension fetches source PDFs before saving their local blobs through Chrome's download manager.
 
 ## Verification
 
@@ -38,6 +55,10 @@ npm run test:extension
 An existing compatible Chromium executable can be supplied using `PLAYWRIGHT_CHROMIUM_EXECUTABLE`. `npm run build:icons` regenerates PNGs from the SVG.
 
 The end-to-end test loads the actual extension into Chromium and uses a local HTTPS fixture server with the billing host mapped to localhost. It checks scanning normal and JavaScript links, downloads, duplicate locality names, pause, recovery after a browser restart, resume, final PDF page counts, CSV contents, login-page rejection, partial merging, retry, Stop, and cache clearing. It also tests event-listener-only View buttons, asynchronous opens, blank popups assigned a URL later, row recovery without temporary tokens, restoration of window.open and absence of extra PDF tabs. The test certificate/private key in `tests` are public test fixtures for localhost only; they are not production credentials and are not packaged.
+
+v1.0.2 checks additionally cover a View address delayed beyond 15 seconds, a real 60-second request timeout followed by other rows, individual retries without touching other failures, automatic retry after its cooldown, manual Skip, shutdown during a live request without Pause, and migration of a saved v1.0.1 batch. Test PDFs and completed download records are verified after restarting the browser; this simulates loss of the processor, not a physical power-failure test.
+
+v1.0.3 adds a connection-drop regression: the fixture sends half a PDF then closes its socket. The test verifies that received bytes, the attempt count and the original deadline remain stable even with auto retry enabled, and that a later selected run issues the correct conditional Range and reconstructs the exact original PDF. A separate eight-row fixture uses asynchronous View actions and delayed HTTP bodies to check a peak of exactly five transfers, slot refilling before the slow first file ends, independent timers, per-file Skip and selected retry. Checkbox tests verify that only unfinished checked rows run. Range-validation unit tests cover changed representations, ignored ranges, invalid offsets and encoded bodies. `BILL_TEST_FAST=1` skips deliberate long waits; `BILL_TEST_TRANSFER_ONLY=1` skips the older long-wait cases while retaining the connection-drop regression.
 
 The authenticated production portal has **not** been tested: access was supplied through screenshots only. Its live HTML and login-cookie behavior may differ from the fixture. Tests and preview screenshots are in `tests/artifacts` after running the test.
 

@@ -37,7 +37,31 @@
     catch { return false; }
   }
   const canDownload = row => allowedUrl(row.url) || (!row.url && Number.isInteger(row.viewRef?.tabId) && allowedUrl(row.viewRef.pageUrl) && typeof row.viewRef.token === 'string');
-  const api = {safeName, folderName, prepareRows, csv, allowedUrl, canDownload};
+  function resumeHeaders(partial, url) {
+    return partial?.url === url && partial.blob?.size > 0 && partial.validator && !partial.encoded
+      ? {Range: `bytes=${partial.blob.size}-`, 'If-Range': partial.validator} : {};
+  }
+  function transferPlan(partial, url, response) {
+    const encoded = !!response.headers.get('content-encoding') && response.headers.get('content-encoding') !== 'identity';
+    const etag = response.headers.get('etag');
+    const modified = response.headers.get('last-modified');
+    const validator = etag?.startsWith('"') ? etag : (modified && Number.isFinite(Date.parse(modified)) ? modified : null);
+    const plan = {prefix: null, encoded, validator: encoded ? null : validator, totalBytes: encoded ? 0 : Number(response.headers.get('content-length')) || 0};
+    if (response.status === 206) {
+      const range = response.headers.get('content-range')?.match(/^bytes (\d+)-(\d+)\/(\d+)$/i);
+      const offset = resumeHeaders(partial, url).Range ? partial.blob.size : 0;
+      const returnedValidator = offset && partial.validator.startsWith('"') ? etag : modified;
+      if (!range || encoded || Number(range[1]) !== offset || Number(range[2]) < offset || Number(range[2]) >= Number(range[3]) ||
+          (offset && partial.totalBytes && partial.totalBytes !== Number(range[3])) ||
+          (offset && returnedValidator && returnedValidator !== partial.validator)) throw new Error('Portal returned an inconsistent byte range. Partial data was kept; retry later.');
+      plan.prefix = offset ? partial.blob : null;
+      plan.totalBytes = Number(range[3]);
+      if (offset) plan.validator = partial.validator;
+    }
+    // A 200 response means Range was ignored or the file changed: use this full response alone.
+    return plan;
+  }
+  const api = {safeName, folderName, prepareRows, csv, allowedUrl, canDownload, resumeHeaders, transferPlan};
   root.BillCore = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(globalThis);

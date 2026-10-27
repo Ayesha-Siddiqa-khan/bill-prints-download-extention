@@ -27,3 +27,19 @@ test('dynamic View actions are selectable only with a reference to the billing p
   assert.equal(core.canDownload({...row,viewRef:{...row.viewRef,pageUrl:'https://evil.example'}}),false);
   assert.equal(core.canDownload({url:''}),false);
 });
+test('partial downloads use a conditional range only for the same unencoded PDF with a validator', () => {
+  const url='https://elgcd.punjab.gov.pk/bill.pdf', partial={url,blob:new Blob(['%PDF-12345']),validator:'"v1"',totalBytes:20};
+  assert.deepEqual(core.resumeHeaders(partial,url),{Range:'bytes=10-','If-Range':'"v1"'});
+  assert.deepEqual(core.resumeHeaders({...partial,validator:null},url),{});
+  assert.deepEqual(core.resumeHeaders({...partial,encoded:true},url),{});
+  assert.deepEqual(core.resumeHeaders(partial,url+'?other'),{});
+  const response=(status,headers)=>({status,headers:new Headers(headers)});
+  const plan=core.transferPlan(partial,url,response(206,{'content-range':'bytes 10-19/20',etag:'"v1"'}));
+  assert.equal(plan.prefix,partial.blob);assert.equal(plan.totalBytes,20);
+  assert.throws(()=>core.transferPlan(partial,url,response(206,{'content-range':'bytes 9-19/20'})),/inconsistent/);
+  assert.throws(()=>core.transferPlan(partial,url,response(206,{'content-range':'bytes 10-19/20',etag:'"v2"'})),/inconsistent/);
+  const ignored=core.transferPlan(partial,url,response(200,{'content-length':'25',etag:'"v2"'}));
+  assert.equal(ignored.prefix,null);assert.equal(ignored.totalBytes,25);assert.equal(ignored.validator,'"v2"');
+  const compressed=core.transferPlan(partial,url,response(200,{'content-length':'10','content-encoding':'gzip',etag:'"v1"'}));
+  assert.equal(compressed.validator,null);assert.equal(compressed.totalBytes,0);
+});
